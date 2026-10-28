@@ -1,0 +1,25 @@
+version: 1
+
+network_middlewares:
+  localis-guard:
+    name: "Localis Gateway Guard"
+    middleware: "localis-gateway-middleware"
+    order: 10
+    on_error: fail_closed
+    endpoints:
+      include:
+        - "*"
+
+network_policies:
+  test-http:
+    name: "Test HTTP target"
+    endpoints:
+      - host: httpbin.org
+        port: 443
+        protocol: rest
+        rules:
+          - allow:
+              method: POST
+              path: /anything
+    binaries:
+      - path: /usr/bin/curl
