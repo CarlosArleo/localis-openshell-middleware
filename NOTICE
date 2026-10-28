@@ -1,0 +1,31 @@
+Localis OpenShell Middleware
+Copyright (c) 2026 Localis AI Limited
+
+This project is an independent prototype. It is not part of, endorsed by, or
+affiliated with NVIDIA or the OpenShell project.
+
+--------------------------------------------------------------------------
+Third-party material
+--------------------------------------------------------------------------
+
+The Protocol Buffers definitions in the proto/ directory (including
+supervisor_middleware.proto and extension.proto) are copied from the
+OpenShell project, https://github.com/NVIDIA/OpenShell, and are used
+unmodified so that this service matches OpenShell's supervisor middleware
+contract.
+
+  SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION &
+  AFFILIATES. All rights reserved.
+  SPDX-License-Identifier: Apache-2.0
+
+These files remain under the Apache License, Version 2.0
+(https://www.apache.org/licenses/LICENSE-2.0). Their original licence headers
+must be kept in place.
+
+This project is written against OpenShell 0.1.x, whose supervisor middleware
+interface is documented by its authors as a research preview and may change
+without notice.
+
+Dependencies installed with npm (for example @grpc/grpc-js and
+@grpc/proto-loader) are not included in this repository and are covered by
+their own licences.

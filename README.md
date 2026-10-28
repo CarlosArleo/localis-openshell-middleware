@@ -16,6 +16,12 @@ It implements the `openshell.middleware.v1.SupervisorMiddleware` service (`proto
 
 The rule is fail closed: anything that looks like a tool call and cannot be positively approved is denied. This matches `on_error: fail_closed` in `policy.yaml`.
 
+## Status
+
+Prototype. On 28 October 2026, on an Ubuntu 26.04.1 VM with OpenShell 0.1.6, a tool call made from inside an OpenShell sandbox was intercepted by this middleware and denied (fail closed) because no Localis gateway was reachable. The sandbox received an HTTP 403 with `reason_code: localis_unreachable`. The evidence is in `VERIFICATION_SUMMARY.md`.
+
+This demonstrates the deny path. The next milestone is approvals and receipts: approving a call through the real Localis/PhyOS gateway and generating receipts are not implemented yet (see below).
+
 ## Known limitations
 
 - **The gateway call is a placeholder.** The middleware forwards the body with a plain `POST` to `LOCALIS_GATEWAY_URL`. The real Localis/PhyOS gateway needs mutual TLS, an MCP session (`initialize`, then `tools/call` with `Mcp-Session-Id`) and a signed `X-Phyora-Principal` header. Until that is implemented, a tool call is allowed only if something at that URL answers 2xx.
@@ -43,7 +49,7 @@ It prints `Localis OpenShell Middleware running on port 50051`.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `LOCALIS_BIND` | see `BIND` in `server.ts` | Address and port to listen on. Use `127.0.0.1:50051` unless OpenShell cannot reach it. |
+| `LOCALIS_BIND` | `127.0.0.1:50051` | Address and port to listen on. Keep loopback unless OpenShell cannot reach it (see `CLOUD_DEPLOY.md`). |
 | `LOCALIS_GATEWAY_URL` | `http://localhost:8443/mcp` | Localis gateway endpoint the tool call is forwarded to. |
 
 ## Test it without OpenShell
@@ -94,3 +100,5 @@ Check the registration with `openshell gateway info`; `localis-gateway-middlewar
 | `test-client.ts` | Calls the service directly to check ALLOW and DENY |
 | `CLOUD_DEPLOY.md` | Steps to run the full sandbox test on a native Ubuntu VM |
 | `VERIFICATION_SUMMARY.md` | What has and has not been verified |
+| `LICENSE` | Apache License 2.0 |
+| `NOTICE` | Attribution for the OpenShell `.proto` files copied into `proto/` |
