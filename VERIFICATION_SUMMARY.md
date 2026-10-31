@@ -75,3 +75,24 @@ On WSL2 the sandbox could not start. The supervisor's log shows `seccomp notific
 ## Reproduce
 
 See `CLOUD_DEPLOY.md`.
+
+## Update, 31 October 2026: tool-call detection fixed, real tests added
+
+**The defect.** An audit (`TRUTH_AUDIT.md`) found that tool calls were detected with a substring check, `body.includes("tools/call")`. A body whose method was written with a JSON escape, `"tools\/call"`, parses to exactly `tools/call`, but was **allowed**, even with the gateway down.
+
+**The fix.** `classify.ts` now decides on the parsed JSON-RPC message:
+- **Tool calls:** the `method` field after parsing (escaped forms included), and any element of a batched array.
+- **Denied as unclassifiable** (`localis_unclassifiable`): a body that looks like JSON but does not parse, a content-encoded body (for example gzip), and invalid UTF-8 declared as JSON.
+- **Left to OpenShell's network policy:** non-JSON bodies, and JSON-RPC methods other than `tools/call`.
+
+**Tests.** `npm test` runs 12 tests that assert the decision, rather than printing it as `test-client.ts` does:
+- `classify.test.ts`: unit tests.
+- `server.test.ts`: starts `server.ts` and calls it over gRPC against a fake gateway that is unreachable, returns 403, or returns 200.
+
+Every decision path is covered: `localis_unreachable`, `localis_denied`, `localis_unclassifiable`, the placeholder allow, and the non-MCP allow. Putting the old substring logic back into `classify.ts` makes the escape, batch and parse tests fail.
+
+**Still not verified (unchanged).**
+- An approved call through the real Localis/PhyOS gateway, and receipts: the forward is still a placeholder.
+- The sandbox-side response for the allow path.
+- Bodies over OpenShell's 4 MiB buffering limit, and MCP over SSE or WebSocket.
+- Authentication between OpenShell and the middleware.

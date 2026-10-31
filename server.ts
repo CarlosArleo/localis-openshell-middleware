@@ -1,6 +1,7 @@
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
 import path from 'path';
+import { classify } from './classify';
 
 // Load the OpenShell protobuf definitions
 const PROTO_PATH = path.join(__dirname, 'proto', 'supervisor_middleware.proto');
@@ -49,24 +50,24 @@ const middlewareImplementation = {
   EvaluateHttpRequest: async (call: any, callback: any) => {
     const req = call.request;
     
-    // OpenShell passes the raw body as a Uint8Array. Convert to string.
-    const bodyStr = req.body ? Buffer.from(req.body).toString('utf8') : "";
-    
+    // OpenShell passes the raw body as bytes (buffered, up to 4 MiB).
+    const body: Buffer = req.body ? Buffer.from(req.body) : Buffer.alloc(0);
+
     console.log(`\n[OpenShell Intercepted] Target: ${req.target.host}${req.target.path}`);
-    
+
     const deny = (reason: string, reason_code: string) => callback(null, { decision: "DECISION_DENY", reason, reason_code });
 
-    // Check if this is an MCP tool call (JSON-RPC). Anything that looks like a tool call is decided fail-closed:
-    // an unparseable body, an unreachable gateway or any error is a DENY, never an ALLOW.
-    if (req.target.method === "POST" && bodyStr.includes("tools/call")) {
-      let toolName: unknown;
-      try {
-        toolName = JSON.parse(bodyStr).params?.name;
-      } catch {
-        console.log(`-> Unparseable tool call: DENIED (fail closed).`);
-        return deny("Tool call body could not be parsed", "localis_unparseable");
-      }
-      console.log(`-> MCP Tool Call detected: ${toolName}`);
+    // Classify on the parsed JSON-RPC message (classify.ts), never on substrings: escaped method names and batched
+    // arrays are caught. Unclassifiable bodies and every tool call are decided fail-closed: an unparseable or encoded
+    // body, an unreachable gateway or any error is a DENY, never an ALLOW.
+    const c = classify(req.headers ?? [], body);
+    if (c.kind === "unclassifiable") {
+      console.log(`-> Unclassifiable body (${c.why}): DENIED (fail closed).`);
+      return deny(`Request body could not be classified: ${c.why}`, "localis_unclassifiable");
+    }
+    if (c.kind === "tool_call") {
+      const bodyStr = body.toString("utf8");
+      console.log(`-> MCP Tool Call detected: ${c.tools.join(", ")}`);
 
       // Forward the exact MCP payload to the Localis gateway. NOTE: the real gateway listens with mutual TLS and needs
       // an MCP session (initialize, then tools/call with Mcp-Session-Id and a signed X-Phyora-Principal header); this
@@ -87,7 +88,8 @@ const middlewareImplementation = {
         console.log(`-> Gateway DENIED the call.`);
         return deny("Localis gateway rejected the policy", "localis_denied");
       }
-      console.log(`-> Gateway ALLOWED the call and issued a receipt.`);
+      // Placeholder forward: a 2xx here is NOT a gateway approval with a receipt (see the NOTE above).
+      console.log(`-> Gateway placeholder returned ${gatewayResponse.status}: allowed (no receipt; placeholder forward).`);
     }
 
     // Default: Allow the request to proceed through OpenShell
